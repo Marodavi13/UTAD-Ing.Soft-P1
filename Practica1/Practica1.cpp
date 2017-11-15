@@ -15,6 +15,8 @@
 #define KEY_K 'k'
 #define MAX_NUM_BULLETS 4
 #define MAX_NUM_ENEMIES 8
+#define KEY_RAIN 176
+
 void restart();
 
 using namespace std;
@@ -31,16 +33,19 @@ int flag_bullet = 0;
 int flag_enemy  = 0;
 int flag_dead = 0;
 int flag_mushroom   = 0;
+
 //Otros
 char key;
 int random			 = 0;
-int mushroom			 = 0;
+int mushroom		 = 0;
 int random_pos       =-1;
 int random_rain;
 unsigned int counter = 0;
 char * level         = "Nivel 1";
 int life			 = 3;
 int score			 = 0;
+//Vectores de posiciones
+
 std::vector <int> bullets_pos_left, bullets_pos_right;
 std::vector<int> enemies_pos_left,enemies_pos_right;
 int main()
@@ -49,7 +54,7 @@ int main()
 
 	while (1) {
 		score++;
-		random = rand() % 30 + 1;
+		random = rand() % 20 + 1;
 		mushroom = rand() % 100 + 1;
 		//Monitorizacion de keys
 		if (_kbhit()) {
@@ -87,11 +92,11 @@ int main()
 			}
 		}
 		
-		// Genereacion y actualizacion del mapa
+		// Generacion y actualizacion del mapa
 		if (pos >= 0 && pos < width) {
 			for (int i = 0; i < width; i++) {
 				random_rain = rand() % 5;
-				if(random_rain==1) map[i] = 176;
+				if(random_rain==1) map[i] = KEY_RAIN;
 				else               map[i] = '_';	
 			}
 			if (random_pos != -1)
@@ -113,21 +118,19 @@ int main()
 				}
 			}
 			
-
 			//Generacion de enemigo izquierdo
-			if (random == 2 && flag_enemy<=4) {
+			if (random == 7 && flag_enemy<=4) {
 				enemies_pos_left.push_back(0);
 				flag_enemy++;
 				map[0] = '#';
 			}
 			//Generacion de enemigo derecho
-			if (random == 8 && !flag_enemy) {
+			if (random == 13 && !flag_enemy) {
 				enemies_pos_right.push_back(width-1);
 				flag_enemy++;
 				map[width - 1] = '#';
 			}
 
-			
 			if (bullets_pos_left.size()) {
 				//Movimiento de la balas izda
 				for (int i = 0; i < bullets_pos_left.size(); i++) {
@@ -170,6 +173,7 @@ int main()
 					flag_bullet--;
 				}
 			}
+
 			//Colision con el enemigo dcha
 			if (enemies_pos_right.size()) {
 				if (enemies_pos_right.at(0) == pos) {
@@ -186,13 +190,13 @@ int main()
 						score += 100;
 					}
 				}
-			
 			}
-
+			//Cogida del mushroom
 			if (pos == random_pos) {
 				score += 1000;
 				random_pos = -1;
 			}
+			//Generecion mushroom
 			if (mushroom == 42  && random_pos==-1) {
 				random_pos = rand() % width;
 				
