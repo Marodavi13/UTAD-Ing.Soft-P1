@@ -48,10 +48,10 @@ int flag_mushroom   = 0;
 
 //Otros
 char key;
-int random			 = 0;
+unsigned int random			 = 0;
 int mushroom		 = 0;
-int random_pos       =-1;
-int random_rain;
+unsigned int random_pos       =-1;
+unsigned int random_rain;
 unsigned int counter = 0;
 char * level         = "Nivel 1";
 int life			 = 3;
@@ -102,7 +102,7 @@ void pushed_key() {
 			break;
 
 		case ESC:
-			system("EXIT");
+			exit(EXIT_SUCCESS);
 			break;
 		case KEY_J:
 			if (flag_bullet < MAX_NUM_BULLETS) {
