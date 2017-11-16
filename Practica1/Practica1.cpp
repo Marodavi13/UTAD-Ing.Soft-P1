@@ -1,6 +1,6 @@
 // Practica1.cpp : Defines the entry point for the console application.
 //
-
+#include "Base.h"
 #include "stdafx.h"
 #include <iostream>
 #include <conio.h>
@@ -8,113 +8,90 @@
 #include <stdlib.h> 
 #include <vector>
 #include <string>
-
-#define KEY_A 'a'
-#define KEY_D 'd'
-#define ESC 27
-#define KEY_J 'j'
-#define KEY_K 'k'
-#define MAX_NUM_BULLETS 4
-#define MAX_NUM_ENEMIES 8
-#define KEY_RAIN 176
-
-void restart();
-void refresh_score();
-void pushed_key();
-void create_map();
-void move_enemies();
-void generate_enemies();
-void move_bullets();
-void collisions();
-void get_mushroom();
-void generate_mushroom();
-void draw_map();
-void refresh_level();
+#include "myBullets.h"
+#include "myEnemies.h"
+#include "myMap.h"
+#include "myMushrooms.h"
+#include "myPlayer.h"
+#include "myRain.h"
 
 using namespace std;
-//Mapa
-const int width = 60;
-char map[width];
-
-
-//Posiciones
-int pos				 = width / 2;
-
+COORD                      resultx,resulty;
 //Flags
-int flag_bullet = 0;
-int flag_enemy  = 0;
-int flag_dead = 0;
+int flag_bullet		= 0;
+int flag_enemy		= 0;
+int flag_dead		= 0;
 int flag_mushroom   = 0;
 
 //Otros
 char key;
-unsigned int random			 = 0;
-int mushroom		 = 0;
-unsigned int random_pos       =-1;
 unsigned int random_rain;
-unsigned int counter = 0;
-char * level         = "Nivel 1";
-int life			 = 3;
-int score			 = 0;
-//Vectores de posiciones
+unsigned int random;
 
-std::vector <int> bullets_pos_left, bullets_pos_right;
-std::vector <int> enemies_pos_left, enemies_pos_right;
+//Vectores de posiciones
+std::vector <CBullets> bullets_left, bullets_right;
+std::vector <CEnemies> enemies_left, enemies_right;
+
+//Objetos
+CPlayer	  player1;
+CMap	  map(width);
+CMushroom mushroom;
+CRain     rain(width);
+
 int main()
 {
+	cout << wherex() << wherey() << endl;
 	cout  <<"\n \n \n \n \n \n" << endl;
-
 	while (1) {
-		refresh_score();
+		refresh_score(); 
 		pushed_key();
-		if (pos >= 0 && pos < width) {
+		if (player1.getPos() >= 0 && player1.getPos() < width) {
 			create_map();
+			generate_mushroom();
+			map.setTile(mushroom.getPos(), '@');
 			move_enemies();
 			generate_enemies();
 			move_bullets();
 			collisions();
 			get_mushroom();
-			generate_mushroom();
-			draw_map();
+			map.draw();
 			refresh_level();
+		}
+		else {
+			cout << "Error" << endl;
+			system("PAUSE");
 		}
 	}
     return 0;
 }
 void refresh_score() {
-	score++;
+	map.addScore(1);
+	map.addCounter();
 	random = rand() % 20 + 1;
-	mushroom = rand() % 100 + 1;
 }
 void pushed_key() {
 	//Monitorizacion de keys
 	if (_kbhit()) {
 		key = _getch();
 		switch (key) {
-		case KEY_A:
-			if (pos > 0)
-				pos--;
-			break;
-
-		case KEY_D:
-			if (pos < width)
-				pos++;
-			break;
-
-		case ESC:
-			exit(EXIT_SUCCESS);
-			break;
-		case KEY_J:
+		case KEY_LEFT:        if (player1.getPos() > 0)      player1.moveLeft();  break;
+			
+		case KEY_RIGHT:       if (player1.getPos() < width)  player1.moveRight(); break;
+	
+		case ESC:			  exit(EXIT_SUCCESS);								  break;
+			
+		case KEY_SHOOT_LEFT:
 			if (flag_bullet < MAX_NUM_BULLETS) {
 				flag_bullet++;
-				bullets_pos_left.push_back(pos - 1);
-
+				CBullets bullet('i', player1.getPos() - 1);
+				bullets_left.push_back(bullet);
 			}
 			break;
-		case KEY_K:
+		case KEY_SHOOT_RIGHT:
 			if (flag_bullet < MAX_NUM_BULLETS) {
 				flag_bullet++;
-				bullets_pos_right.push_back(pos + 1);
+				CBullets bullet('d', player1.getPos() + 1);
+				bullets_right.push_back(bullet);
 
 			}
 			break;
@@ -122,179 +99,197 @@ void pushed_key() {
 	}
 }
 void create_map() {
-	for (int i = 0; i < width; i++) {
-		random_rain = rand() % 5;
-		if (random_rain == 1) map[i] = KEY_RAIN;
-		else				  map[i] = '_';
+	map.resetMap();
+	rain.updateRain(width);
+	map.setMap(rain.getRain(),width);
+	map.setTile(player1.getPos(), 'X');
+}
+
+//meto lluvia
+void generate_mushroom() {
+	//Generacion mushroom
+	int random1 = rand() % 100 + 1;
+	if (random1 == 42 && mushroom.getPos() == -1) {
+		mushroom.setPos();
 	}
-	if (random_pos != -1)
-		map[random_pos] = '@';
-		map[pos] = 'X';
 }
 void move_enemies() {
 	//Actualizacion de la posicion del enemigo izquierdo
-	if (enemies_pos_left.size()) {
-		for (int i = 0; i < enemies_pos_left.size(); i++) {
-			map[enemies_pos_left.at(i)] = '#';
-			enemies_pos_left[i]++;
+	if (enemies_left.size()) {
+		for (int i = 0; i < enemies_left.size(); i++) {
+			map.setTile(enemies_left.at(i).getPos(), '#');
+			enemies_left.at(i).move();
 		}
 	}
 	//Actualizacion de la posicion del enemigo derecho
-	if (enemies_pos_right.size()) {
-		for (int i = 0; i < enemies_pos_right.size(); i++) {
-			map[enemies_pos_right.at(i)] = '#';
-			enemies_pos_right[i]--;
+	if (enemies_right.size()) {
+		for (int i = 0; i < enemies_right.size(); i++) {
+			map.setTile(enemies_right.at(i).getPos(), '#');
+			enemies_right.at(i).move();
 		}
 	}
 }
 void generate_enemies() {
-	//Generacion de enemigo izquierdo
+	//Generacion de enemigo 
 	if (random == 7 && flag_enemy <= 4) {
-		enemies_pos_left.push_back(0);
+		CEnemies enemy('i');
+		enemies_left.push_back(enemy);
 		flag_enemy++;
-		map[0] = '#';
+		map.setTile(0,'#');
 	}
-	//Generacion de enemigo derecho
-	if (random == 13 && !flag_enemy) {
-		enemies_pos_right.push_back(width - 1);
+	if (random == 13 && flag_enemy <= 4) {
+		CEnemies enemy('d');
+		enemies_right.push_back(enemy);
 		flag_enemy++;
-		map[width - 1] = '#';
+		map.setTile(width-1, '#');
 	}
 }
 void move_bullets() {
-	if (bullets_pos_left.size()) {
+	if (bullets_left.size()) {
 		//Movimiento de la balas izda
-		for (int i = 0; i < bullets_pos_left.size(); i++) {
-			map[bullets_pos_left.at(i)] = '<';
-			bullets_pos_left[i]--;
+		for (int i = 0; i < bullets_left.size(); i++) {
+			map.setTile(bullets_left.at(i).getPos(),'<');
+			bullets_left.at(i).move();
 		}
 		//Eliminación balas izda fuera del mapa
-		if (bullets_pos_left.at(0) < 0) {
-			bullets_pos_left.erase(bullets_pos_left.begin());
+		if (bullets_left.at(0).getPos() < 0) {
+			bullets_left.erase(bullets_left.begin());
 			flag_bullet--;
 		}
 	}
-	if (bullets_pos_right.size()) {
+	if (bullets_right.size()) {
 		//Movimiento de la balas dcha
-		for (int i = 0; i < bullets_pos_right.size(); i++) {
-			map[bullets_pos_right.at(i)] = '>';
-			bullets_pos_right[i]++;
+		for (int i = 0; i < bullets_right.size(); i++) {
+			map.setTile(bullets_right.at(i).getPos(), '>');
+			bullets_right.at(i).move();
 		}
 		//Eliminación balas dcha fuera del mapa
-		if (bullets_pos_right.at(0) >= width) {
-			bullets_pos_right.erase(bullets_pos_right.begin());
+		if (bullets_right.at(0).getPos() >= width) {
+			bullets_right.erase(bullets_right.begin());
 			flag_bullet--;
 		}
 	}
 }
 void collisions() {
 	//Colision con el enemigo izdo
-	if (enemies_pos_left.size()) {
-		if (enemies_pos_left.at(0) == pos) {
-			life--;
+	if (enemies_left.size()) {
+		if (enemies_left.at(0).getPos() >= player1.getPos()) {
+			map.removeLives();
 			restart();
 			Sleep(3000);
 		}
-		else if (bullets_pos_left.size()) {
-			if (enemies_pos_left.at(0) == bullets_pos_left.at(0) || enemies_pos_left.at(0) == bullets_pos_left.at(0) - 1) {
-				bullets_pos_left.erase(bullets_pos_left.begin());
-				enemies_pos_left.erase(enemies_pos_left.begin());
+		else if (bullets_left.size()) {
+			if (enemies_left.at(0).getPos() >= bullets_left.at(0).getPos()) {
+				bullets_left.erase(bullets_left.begin());
+				enemies_left.erase(enemies_left.begin());
 				flag_bullet--;
 				flag_enemy--;
-				score += 100;
+				map.addScore(100);
 			}
 		}
 	}
 	//Colision con el enemigo dcha
-	if (enemies_pos_right.size()) {
-		if (enemies_pos_right.at(0) == pos) {
-			life--;
+	if (enemies_right.size()) {
+		if (enemies_right.at(0).getPos() <= player1.getPos()) {
+			map.removeLives();
 			restart();
 			Sleep(3000);
 		}
-		else if (bullets_pos_right.size()) {
-			if (enemies_pos_right.at(0) == bullets_pos_right.at(0) || enemies_pos_right.at(0) == bullets_pos_right.at(0) + 1) {
-				bullets_pos_right.erase(bullets_pos_right.begin());
-				enemies_pos_right.erase(enemies_pos_right.begin());
+		else if (bullets_right.size()) {
+			if (enemies_right.at(0).getPos() <= bullets_right.at(0).getPos()) {
+				bullets_right.erase(bullets_right.begin());
+				enemies_right.erase(enemies_right.begin());
 				flag_bullet--;
 				flag_enemy--;
-				score += 100;
+				map.addScore(100);
 			}
 		}
 	}
 }
 void get_mushroom() {
 	//Cogida del mushroom
-	if (pos == random_pos) {
-		score += 1000;
-		random_pos = -1;
+	if (player1.getPos() == mushroom.getPos()) {
+		map.addScore(1000);
+		mushroom.resetPos();
 	}
-}
-void generate_mushroom() {
-	//Generacion mushroom
-	if (mushroom == 42 && random_pos == -1) {
-		random_pos = rand() % width;
-
-	}
-}
-void draw_map() {
-	//Imprimir el codigo por pantalla
-	for (int i = 0; i < width; i++) {
-		cout << map[i];
-	}
-	cout << level << " || Score: " << score << " || Vidas restantes: ";
-	cout << life << "\r";
 }
 void refresh_level() {
-	//Niveles
-	if (counter < 0xFFFFFFFF)
-		counter++;
-	if (counter < 100) {
-		level = "Nivel 1";
+	if (map.getCounter() < 100) {
+		map.setLevel("Nivel 1");
 		Sleep(80);
 	}
-	else if (counter < 250) {
-		level = "Nivel 2";
+	else if (map.getCounter() < 250) {
+		map.setLevel("Nivel 2");
 		Sleep(60);
 	}
-	else if (counter < 450) {
-		level = "Nivel 3";
+	else if (map.getCounter() < 450) {
+		map.setLevel("Nivel 3");
 		Sleep(35);
 	}
-	else if (counter < 700) {
-		level = "Nivel 4";
+	else if (map.getCounter() < 700) {
+		map.setLevel("Nivel 4");
 		Sleep(20);
 	}
-	else if (counter < 1050) {
-		level = "Nivel 5";
+	else if (map.getCounter() < 1050) {
+		map.setLevel("Nivel 5");
 		Sleep(17);
 	}
 	else {
-		level = "Nivel 6";
+		map.setLevel("Nivel 6");
 		Sleep(13);
 	}
 }
 void restart() {
 	//Posiciones
-	pos = width / 2;
-	bullets_pos_left.clear();
-	bullets_pos_right.clear();
-	enemies_pos_left.clear();
-	enemies_pos_right.clear();
-	random_pos = -1;
+	player1.resetPos();
+	bullets_left.clear();
+	bullets_right.clear();
+	enemies_left.clear();
+	enemies_right.clear();
+	mushroom.resetPos();
 
 	//Flags
 	flag_bullet = 0;
 	flag_enemy = 0;
 	flag_dead = 0;
 	flag_mushroom = 0;
-	counter = 0;
-	if (!life) {
+	map.resetCounter();
+	if (!map.getLives()) {
 		cout << "Eres un manco" << endl;
 		system("PAUSE");
-		level = "Nivel 1";
-		life = 3;      
-		score = 0;
+		map.setLevel("Nivel 1");
+		map.resetLives();
+		map.resetScore();
 	}
 }
+void gotoxy(int column, int line)
+{
+	COORD coord;
+	coord.X = column;
+	coord.Y = line;
+	SetConsoleCursorPosition(
+		GetStdHandle(STD_OUTPUT_HANDLE),
+		coord
+	);
+}
+int wherex()
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (!GetConsoleScreenBufferInfo(
+		GetStdHandle(STD_OUTPUT_HANDLE),
+		&csbi
+	))
+		return -1;
+	return resultx.X;
+}
+int wherey()
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
+	if (!GetConsoleScreenBufferInfo(
+		GetStdHandle(STD_OUTPUT_HANDLE),
+		&csbi
+	))
+		return -1;
+	return resulty.Y;
+}
